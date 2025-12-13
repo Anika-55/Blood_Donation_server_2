@@ -8,6 +8,7 @@ const {
   createDonationRequest,
   updateDonationStatus,
   updateDonationRequest,
+  getSingleDonationRequest,
   deleteDonation,
 } = require("../controllers/donor.controller");
 
@@ -19,6 +20,8 @@ router.get("/my", protect, myDonationRequests);
 
 // Update donation request fully (edit) - pending or inprogress only
 router.patch("/:id", protect, updateDonationRequest);
+
+router.get("/:id", protect, getSingleDonationRequest);
 
 // create request
 router.post("/", protect, createDonationRequest);

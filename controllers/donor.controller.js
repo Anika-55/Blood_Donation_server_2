@@ -230,6 +230,28 @@ exports.updateDonationRequest = async (req, res) => {
   }
 };
 
+//Get single donation request by ID (Donor only)
+exports.getSingleDonationRequest = async (req, res) => {
+  try {
+    const db = await connectDB();
+    const donationRequests = db.collection("donationRequests");
+
+    const request = await donationRequests.findOne({
+      _id: new ObjectId(req.params.id),
+      requestedBy: req.user.id,
+    });
+
+    if (!request) {
+      return res.status(404).json({ message: "Request not found" });
+    }
+
+    res.json(request);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 
 /**
  * DELETE /api/donation-requests/:id

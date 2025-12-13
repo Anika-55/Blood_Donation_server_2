@@ -10,10 +10,19 @@ const {
   deleteDonation,
 } = require("../controllers/donor.controller");
 
+// last 3 requests (dashboard)
 router.get("/dashboard", protect, dashboardHome);
-router.get("/my-requests", protect, myDonationRequests);
-router.post("/create", protect, createDonationRequest);
-router.patch("/status/:id", protect, updateDonationStatus);
+
+// my requests (pagination + filter)
+router.get("/my", protect, myDonationRequests);
+
+// create request
+router.post("/", protect, createDonationRequest);
+
+// update status
+router.patch("/:id/status", protect, updateDonationStatus);
+
+// delete
 router.delete("/:id", protect, deleteDonation);
 
 module.exports = router;

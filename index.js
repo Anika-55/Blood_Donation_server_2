@@ -5,6 +5,7 @@ const cors = require("cors");
 const authRoutes = require("./routes/auth.routes");
 const donationRoutes = require("./routes/donation.routes");
 const donorRoutes = require("./routes/donor.routes");
+const moneyDonationRoutes = require("./routes/moneyDonationRoutes");
 
 const app = express();
 
@@ -15,7 +16,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/donations", donationRoutes);
 app.use("/api/donor", donorRoutes);
-
+app.use("/api/money-donations", moneyDonationRoutes);
 
 
 

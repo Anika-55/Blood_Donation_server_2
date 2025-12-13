@@ -1,119 +1,206 @@
-const connectDB = require("../config/db");
+// controllers/donor.controller.js
+const { connectDB } = require("../config/db");
 const { ObjectId } = require("mongodb");
 
 /**
- * GET /api/donor/dashboard
- * Last 3 donation requests (own)
+ * GET /api/donation-requests/dashboard
+ * Get last 3 donation requests (Donor only)
  */
 exports.dashboardHome = async (req, res) => {
   try {
     const db = await connectDB();
-    const donations = db.collection("donations");
+    const donationRequests = db.collection("donationRequests");
 
-    const data = await donations
-      .find({ requesterId: req.user.id })
+    const data = await donationRequests
+      .find({ requestedBy: req.user.id }) // requestedBy stored as string
       .sort({ createdAt: -1 })
       .limit(3)
       .toArray();
 
     res.json(data);
   } catch (err) {
+    console.error("Dashboard error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
 /**
- * GET /api/donor/my-requests
- * All donation requests (own) + filter
+ * GET /api/donation-requests/my
+ * Get donor's donation requests (pagination + filter)
  */
 exports.myDonationRequests = async (req, res) => {
   try {
-    const { status } = req.query;
+    const { status, page = 1, limit = 10 } = req.query;
     const db = await connectDB();
-    const donations = db.collection("donations");
+    const donationRequests = db.collection("donationRequests");
 
-    const query = { requesterId: req.user.id };
-    if (status) query.status = status;
+    const filter = { requestedBy: req.user.id }; // store user id as string
+    if (status) filter.status = status;
 
-    const data = await donations.find(query).toArray();
-    res.json(data);
+    const skip = (Number(page) - 1) * Number(limit);
+    const total = await donationRequests.countDocuments(filter);
+    const data = await donationRequests
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit))
+      .toArray();
+
+    res.json({
+      data,
+      total,
+      page: Number(page),
+      pages: Math.ceil(total / Number(limit)),
+    });
   } catch (err) {
+    console.error("My requests error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
 /**
- * POST /api/donor/create
- * Create donation request
+ * POST /api/donation-requests
+ * Create new donation request (Donor)
  */
 exports.createDonationRequest = async (req, res) => {
   try {
+    const {
+      recipientName,
+      recipientDistrict,
+      recipientUpazila,
+      hospitalName,
+      address,
+      bloodGroup,
+      donationDate,
+      donationTime,
+      message,
+    } = req.body;
+
+    if (
+      !recipientName ||
+      !recipientDistrict ||
+      !recipientUpazila ||
+      !bloodGroup ||
+      !donationDate
+    ) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
     const db = await connectDB();
     const users = db.collection("users");
-    const donations = db.collection("donations");
+    const donationRequests = db.collection("donationRequests");
 
     const user = await users.findOne({ _id: new ObjectId(req.user.id) });
 
-    if (user.status === "blocked")
-      return res.status(403).json({ message: "Blocked user cannot create request" });
+    if (!user || user.status === "blocked") {
+      return res
+        .status(403)
+        .json({ message: "Blocked users cannot create requests" });
+    }
 
-    const donation = {
-      requesterId: req.user.id,
-      requesterName: user.name,
-      requesterEmail: user.email,
-
-      recipientName: req.body.recipientName,
-      recipientDistrict: req.body.recipientDistrict,
-      recipientUpazila: req.body.recipientUpazila,
-      hospitalName: req.body.hospitalName,
-      address: req.body.address,
-      bloodGroup: req.body.bloodGroup,
-      donationDate: req.body.donationDate,
-      donationTime: req.body.donationTime,
-      message: req.body.message,
-
+    const doc = {
+      requestedBy: req.user.id, // store as string
+      recipientName,
+      recipientDistrict,
+      recipientUpazila,
+      hospitalName: hospitalName || "",
+      address: address || "",
+      bloodGroup,
+      donationDate,
+      donationTime: donationTime || "",
+      message: message || "",
       status: "pending",
       createdAt: new Date(),
     };
 
-    await donations.insertOne(donation);
-    res.status(201).json({ message: "Donation request created" });
+    const result = await donationRequests.insertOne(doc);
+
+    res.status(201).json({
+      message: "Donation request created successfully",
+      requestId: result.insertedId,
+    });
   } catch (err) {
+    console.error("Create request error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
 /**
- * PATCH /api/donor/status/:id
- * Update donation status
+ * PATCH /api/donation-requests/:id/status
+ * Donor can update status (only inprogress → done/canceled)
  */
 exports.updateDonationStatus = async (req, res) => {
   try {
+    const { status } = req.body;
+    const id = req.params.id;
+
+    if (!["done", "canceled"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status change" });
+    }
+
     const db = await connectDB();
-    await db.collection("donations").updateOne(
-      { _id: new ObjectId(req.params.id) },
-      { $set: { status: req.body.status } }
+    const donationRequests = db.collection("donationRequests");
+
+    const request = await donationRequests.findOne({
+      _id: new ObjectId(id),
+    });
+
+    if (!request) return res.status(404).json({ message: "Request not found" });
+
+    if (request.requestedBy !== req.user.id) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    if (request.status !== "inprogress") {
+      return res
+        .status(400)
+        .json({ message: "Only inprogress requests can be updated" });
+    }
+
+    await donationRequests.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { status } }
     );
 
-    res.json({ message: "Status updated" });
+    res.json({ message: "Status updated successfully" });
   } catch (err) {
+    console.error("Status update error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
 /**
- * DELETE /api/donor/:id
- * Delete donation request
+ * DELETE /api/donation-requests/:id
+ * Donor deletes own request (only pending)
  */
 exports.deleteDonation = async (req, res) => {
   try {
+    const id = req.params.id;
+
     const db = await connectDB();
-    await db.collection("donations").deleteOne({
-      _id: new ObjectId(req.params.id),
+    const donationRequests = db.collection("donationRequests");
+
+    const request = await donationRequests.findOne({
+      _id: new ObjectId(id),
     });
 
-    res.json({ message: "Deleted successfully" });
+    if (!request) return res.status(404).json({ message: "Request not found" });
+
+    if (request.requestedBy !== req.user.id) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    if (request.status !== "pending") {
+      return res
+        .status(400)
+        .json({ message: "Only pending requests can be deleted" });
+    }
+
+    await donationRequests.deleteOne({ _id: new ObjectId(id) });
+
+    res.json({ message: "Donation request deleted successfully" });
   } catch (err) {
+    console.error("Delete error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };

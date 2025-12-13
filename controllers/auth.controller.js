@@ -1,7 +1,9 @@
 const { connectDB } = require("../config/db");
 const bcrypt = require("bcrypt");
 const hashPassword = require("../utils/hashPassword");
+const generateToken = require("../utils/generateToken"); // your JWT function
 
+// ------------------- REGISTER -------------------
 exports.registerUser = async (req, res) => {
   try {
     const db = await connectDB();
@@ -33,13 +35,25 @@ exports.registerUser = async (req, res) => {
 
     const result = await users.insertOne(newUser);
 
-    res.status(201).json({ message: "Registration successful", userId: result.insertedId });
+    const token = generateToken({ _id: result.insertedId, role: newUser.role });
+
+    res.status(201).json({
+      message: "Registration successful",
+      user: {
+        id: result.insertedId,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+      },
+      accessToken: token, // <-- add token here
+    });
   } catch (err) {
     console.error("Registration error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
+// ------------------- LOGIN -------------------
 exports.loginUser = async (req, res) => {
   try {
     const db = await connectDB();
@@ -54,6 +68,9 @@ exports.loginUser = async (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(400).json({ message: "Wrong password" });
 
+    // Generate JWT
+    const token = generateToken(user);
+
     res.json({
       message: "Login successful",
       user: {
@@ -62,6 +79,7 @@ exports.loginUser = async (req, res) => {
         email: user.email,
         role: user.role,
       },
+      token, // <-- return token
     });
   } catch (err) {
     console.error("Login error:", err);

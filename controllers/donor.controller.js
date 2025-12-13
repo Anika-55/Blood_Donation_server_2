@@ -169,6 +169,68 @@ exports.updateDonationStatus = async (req, res) => {
   }
 };
 
+
+/**
+ * PATCH /api/donation-requests/:id
+ * Donor edits own donation request (only pending or inprogress)
+ */
+exports.updateDonationRequest = async (req, res) => {
+  try {
+    const id = req.params.id;
+    const {
+      recipientName,
+      recipientDistrict,
+      recipientUpazila,
+      hospitalName,
+      address,
+      bloodGroup,
+      donationDate,
+      donationTime,
+      message,
+    } = req.body;
+
+    const db = await connectDB();
+    const donationRequests = db.collection("donationRequests");
+
+    const request = await donationRequests.findOne({ _id: new ObjectId(id) });
+    if (!request) return res.status(404).json({ message: "Request not found" });
+
+    if (request.requestedBy !== req.user.id) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    // Only pending or inprogress can be edited
+    if (!["pending", "inprogress"].includes(request.status)) {
+      return res
+        .status(400)
+        .json({ message: "Only pending or inprogress requests can be edited" });
+    }
+
+    const updatedDoc = {
+      recipientName: recipientName || request.recipientName,
+      recipientDistrict: recipientDistrict || request.recipientDistrict,
+      recipientUpazila: recipientUpazila || request.recipientUpazila,
+      hospitalName: hospitalName || request.hospitalName,
+      address: address || request.address,
+      bloodGroup: bloodGroup || request.bloodGroup,
+      donationDate: donationDate || request.donationDate,
+      donationTime: donationTime || request.donationTime,
+      message: message || request.message,
+    };
+
+    await donationRequests.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updatedDoc }
+    );
+
+    res.json({ message: "Donation request updated successfully" });
+  } catch (err) {
+    console.error("Update request error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
 /**
  * DELETE /api/donation-requests/:id
  * Donor deletes own request (only pending)

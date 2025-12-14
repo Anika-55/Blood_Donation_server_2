@@ -15,9 +15,17 @@ exports.protect = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    req.user = decoded;
+    req.user = decoded; // decoded should contain user info including role
     next();
   } catch (err) {
     return res.status(403).json({ message: "Invalid or expired token" });
   }
+};
+
+// Only allow admin users
+exports.adminOnly = (req, res, next) => {
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ message: "Forbidden: Admins only" });
+  }
+  next();
 };

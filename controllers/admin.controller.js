@@ -1,0 +1,104 @@
+// controllers/admin.controller.js
+const { connectDB } = require("../config/db");
+const { ObjectId } = require("mongodb");
+
+// 1️⃣ Get dashboard statistics
+exports.getStats = async (req, res) => {
+  try {
+    const db = await connectDB();
+    const users = db.collection("users");
+    const donations = db.collection("donations");
+    const moneyDonations = db.collection("moneyDonations");
+
+    const totalUsers = await users.countDocuments();
+    const totalFundsAgg = await moneyDonations.aggregate([
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]).toArray();
+    const totalFunds = totalFundsAgg[0]?.total || 0;
+    const totalBloodRequests = await donations.countDocuments();
+
+    res.json({ totalUsers, totalFunds, totalBloodRequests });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// 2️⃣ Get all users with optional status filter
+exports.getAllUsers = async (req, res) => {
+  try {
+    const db = await connectDB();
+    const users = db.collection("users");
+
+    const query = {};
+    if (req.query.status) query.status = req.query.status;
+
+    const allUsers = await users.find(query).toArray();
+    res.json(allUsers);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// 3️⃣ User actions: block, unblock, make-volunteer, make-admin
+exports.userActions = async (req, res) => {
+  try {
+    const { id, action } = req.params;
+    const db = await connectDB();
+    const users = db.collection("users");
+
+    const user = await users.findOne({ _id: new ObjectId(id) });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    let update = {};
+    if (action === "block") update.status = "blocked";
+    else if (action === "unblock") update.status = "active";
+    else if (action === "make-volunteer") update.role = "volunteer";
+    else if (action === "make-admin") update.role = "admin";
+    else return res.status(400).json({ message: "Invalid action" });
+
+    await users.updateOne({ _id: new ObjectId(id) }, { $set: update });
+    res.json({ message: "Action performed successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+// 4️⃣ Get all blood donation requests (admin view)
+exports.getAllDonationRequests = async (req, res) => {
+  try {
+    const db = await connectDB();
+    const donations = db.collection("donations");
+
+    // Parse page and limit as numbers
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const { status } = req.query;
+
+    // Build query
+    const query = {};
+    if (status) query.status = status;
+
+    console.log("Query:", query, "Page:", page, "Limit:", limit);
+
+    // Get total count
+    const total = await donations.countDocuments(query);
+
+    // Fetch paginated data
+    const data = await donations
+      .find(query)
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .toArray();
+
+    res.json({ data, total });
+  } catch (err) {
+    console.error("Error fetching all donation requests:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+

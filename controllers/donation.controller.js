@@ -1,36 +1,52 @@
-// controllers/donation.controller.js
 const { connectDB } = require("../config/db");
 const { ObjectId } = require("mongodb");
 
-// Get all pending donation requests
+/**
+ * PUBLIC – Get all pending donation requests
+ * GET /api/donations?status=pending
+ */
 exports.getPendingDonations = async (req, res) => {
   try {
     const db = await connectDB();
-    const donations = db.collection("donations");
+    const donationRequests = db.collection("donationRequests");
 
-    const pending = await donations.find({ status: "pending" }).toArray();
+    const { status } = req.query;
 
-    res.json(pending);
+    const filter = {};
+    if (status) filter.status = status;
+
+    const data = await donationRequests
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.json(data);
   } catch (err) {
-    console.error("Error fetching donations:", err);
+    console.error("getPendingDonations error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// Get single donation request by ID (private)
+/**
+ * PRIVATE – Get single donation request
+ * GET /api/donations/:id
+ */
 exports.getDonationById = async (req, res) => {
   try {
     const db = await connectDB();
-    const donations = db.collection("donations");
+    const donationRequests = db.collection("donationRequests");
 
-    const { id } = req.params;
-    const donation = await donations.findOne({ _id: new ObjectId(id) });
+    const donation = await donationRequests.findOne({
+      _id: new ObjectId(req.params.id),
+    });
 
-    if (!donation) return res.status(404).json({ message: "Donation not found" });
+    if (!donation) {
+      return res.status(404).json({ message: "Donation request not found" });
+    }
 
     res.json(donation);
   } catch (err) {
-    console.error("Error fetching donation:", err);
+    console.error("getDonationById error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };

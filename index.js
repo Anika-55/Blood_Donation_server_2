@@ -6,19 +6,19 @@ const authRoutes = require("./routes/auth.routes");
 const donationRoutes = require("./routes/donation.routes");
 const donorRoutes = require("./routes/donor.routes");
 const moneyDonationRoutes = require("./routes/moneyDonationRoutes");
+const adminRoutes = require("./routes/admin.routes");
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// prefix all auth routes with /api/auth
+// routes
 app.use("/api/auth", authRoutes);
-app.use("/api/donations", donationRoutes);
-app.use("/api/donor", donorRoutes);
+app.use("/api/donations", donationRoutes);   // ✅ public + private donation requests
+app.use("/api/donor", donorRoutes);           // ✅ donor dashboard actions
 app.use("/api/money-donations", moneyDonationRoutes);
-
-
+app.use("/api/admin", adminRoutes);
 
 app.get("/", (req, res) => {
   res.send("Blood Donation Server Running");

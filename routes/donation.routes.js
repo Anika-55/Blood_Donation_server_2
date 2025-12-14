@@ -1,17 +1,16 @@
-// routes/donation.routes.js
 const express = require("express");
 const router = express.Router();
+const { protect } = require("../middleware/auth.middleware");
+
 const {
   getPendingDonations,
   getDonationById,
 } = require("../controllers/donation.controller");
 
-const { protect } = require("../middleware/auth.middleware");
-
-// Public route: pending donations
+// PUBLIC – list pending requests
 router.get("/", getPendingDonations);
 
-// Private route: donation details
+// PRIVATE – request details
 router.get("/:id", protect, getDonationById);
 
 module.exports = router;

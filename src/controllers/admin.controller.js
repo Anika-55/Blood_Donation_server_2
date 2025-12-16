@@ -68,26 +68,20 @@ exports.userActions = async (req, res) => {
 
 
 // 4️⃣ Get all blood donation requests (admin view)
+
 exports.getAllDonationRequests = async (req, res) => {
   try {
     const db = await connectDB();
-    const donations = db.collection("donations");
+    const donations = db.collection("donationRequests"); // ✅ use the same collection
 
-    // Parse page and limit as numbers
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const { status } = req.query;
 
-    // Build query
     const query = {};
     if (status) query.status = status;
 
-    console.log("Query:", query, "Page:", page, "Limit:", limit);
-
-    // Get total count
     const total = await donations.countDocuments(query);
-
-    // Fetch paginated data
     const data = await donations
       .find(query)
       .skip((page - 1) * limit)
@@ -96,9 +90,37 @@ exports.getAllDonationRequests = async (req, res) => {
 
     res.json({ data, total });
   } catch (err) {
-    console.error("Error fetching all donation requests:", err);
+    console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
+// 5️⃣ Update donation request status (Resolve/Reject)
+exports.updateDonationStatus = async (req, res) => {
+  try {
+    const { id } = req.params; // donation request ID
+    const { status } = req.body; // new status: "inprogress" or "canceled"
+
+    if (!["inprogress", "canceled", "done"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    const db = await connectDB();
+    const donations = db.collection("donationRequests");
+
+    const donation = await donations.findOne({ _id: new ObjectId(id) });
+    if (!donation)
+      return res.status(404).json({ message: "Donation request not found" });
+
+    await donations.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { status } }
+    );
+
+    res.json({ message: "Status updated successfully", data: { _id: id, status } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 

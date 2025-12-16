@@ -6,6 +6,7 @@ const {
   getAllUsers,
   userActions,
   getAllDonationRequests,
+  updateDonationStatus, // ✅ import the new controller
 } = require("../controllers/admin.controller");
 
 // Dashboard stats
@@ -19,5 +20,13 @@ router.patch("/users/:id/:action", protect, adminOnly, userActions);
 
 // All donation requests
 router.get("/donations", protect, adminOnly, getAllDonationRequests);
+
+// ✅ Update donation request status (Resolve / Reject)
+router.patch(
+  "/donations/:id/status",
+  protect,
+  adminOnly,
+  updateDonationStatus
+);
 
 module.exports = router;

@@ -1,95 +1,92 @@
-// const { connectDB } = require("../config/db");
-// const { ObjectId } = require("mongodb");
+// controllers/volunteer.controller.js
+const { connectDB } = require("../config/db");
+const { ObjectId } = require("mongodb");
 
-// /* ===============================
-//    1️⃣ Volunteer Dashboard Stats
-//    =============================== */
-// exports.getVolunteerStats = async (req, res) => {
-//   try {
-//     const db = await connectDB();
-//     const donations = db.collection("donationRequests");
+// GET all donation requests (with pagination + filter)
+exports.getAllDonationRequests = async (req, res) => {
+  try {
+    if (req.user.role !== "volunteer")
+      return res.status(403).json({ message: "Forbidden" });
 
-//     const total = await donations.countDocuments();
-//     const pending = await donations.countDocuments({ status: "pending" });
-//     const inprogress = await donations.countDocuments({ status: "inprogress" });
+    const { status, page = 1, limit = 10 } = req.query;
+    const db = await connectDB();
+    const donationRequests = db.collection("donationRequests");
 
-//     res.json({
-//       total,
-//       pending,
-//       inprogress,
-//     });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// };
+    const filter = {};
+    if (status) filter.status = status;
 
-// /* =============================================
-//    2️⃣ Get All Blood Donation Requests (Volunteer)
-//    - Pagination
-//    - Status Filter
-//    ============================================= */
-// exports.getAllDonationRequestsVolunteer = async (req, res) => {
-//   try {
-//     const db = await connectDB();
-//     const donations = db.collection("donationRequests");
+    const skip = (Number(page) - 1) * Number(limit);
+    const total = await donationRequests.countDocuments(filter);
+    const data = await donationRequests
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit))
+      .toArray();
 
-//     const page = parseInt(req.query.page) || 1;
-//     const limit = parseInt(req.query.limit) || 10;
-//     const { status } = req.query;
+    res.json({
+      data,
+      total,
+      page: Number(page),
+      pages: Math.ceil(total / Number(limit)),
+    });
+  } catch (err) {
+    console.error("Volunteer getAllDonationRequests error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
-//     const query = {};
-//     if (status) query.status = status;
+// PATCH donation status (inprogress → done/canceled)
+exports.updateDonationStatus = async (req, res) => {
+  try {
+    if (req.user.role !== "volunteer")
+      return res.status(403).json({ message: "Forbidden" });
 
-//     const total = await donations.countDocuments(query);
+    const { status } = req.body;
+    const id = req.params.id;
 
-//     const data = await donations
-//       .find(query)
-//       .skip((page - 1) * limit)
-//       .limit(limit)
-//       .sort({ donationDate: -1 })
-//       .toArray();
+    if (!["done", "canceled", "inprogress"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
 
-//     res.json({ data, total });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// };
+    const db = await connectDB();
+    const donationRequests = db.collection("donationRequests");
 
-// /* =========================================
-//    3️⃣ Update Donation Status (Volunteer)
-//    Allowed: pending → inprogress → done
-//    ========================================= */
-// exports.updateDonationStatusVolunteer = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const { status } = req.body;
+    const request = await donationRequests.findOne({ _id: new ObjectId(id) });
+    if (!request) return res.status(404).json({ message: "Request not found" });
 
-//     const allowedStatus = ["pending", "inprogress", "done"];
-//     if (!allowedStatus.includes(status)) {
-//       return res.status(400).json({ message: "Invalid status" });
-//     }
+    await donationRequests.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { status } }
+    );
 
-//     const db = await connectDB();
-//     const donations = db.collection("donationRequests");
+    res.json({ message: "Status updated successfully" });
+  } catch (err) {
+    console.error("Volunteer updateDonationStatus error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
-//     const donation = await donations.findOne({ _id: new ObjectId(id) });
-//     if (!donation) {
-//       return res.status(404).json({ message: "Donation request not found" });
-//     }
+// GET /api/volunteer/donations/:id
+exports.getSingleDonationRequest = async (req, res) => {
+  try {
+    if (req.user.role !== "volunteer")
+      return res.status(403).json({ message: "Forbidden" });
 
-//     await donations.updateOne(
-//       { _id: new ObjectId(id) },
-//       { $set: { status } }
-//     );
+    const db = await connectDB();
+    const donationRequests = db.collection("donationRequests");
 
-//     res.json({
-//       message: "Donation status updated successfully",
-//       data: { _id: id, status },
-//     });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// };
+    const request = await donationRequests.findOne({
+      _id: new ObjectId(req.params.id),
+    });
+
+    if (!request)
+      return res.status(404).json({ message: "Donation request not found" });
+
+    res.json(request);
+  } catch (err) {
+    console.error("Volunteer getSingleDonationRequest error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+

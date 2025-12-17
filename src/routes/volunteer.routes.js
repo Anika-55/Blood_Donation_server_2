@@ -1,41 +1,21 @@
+// routes/volunteer.routes.js
 const express = require("express");
 const router = express.Router();
-
+const { protect } = require("../middleware/auth.middleware");
 const {
-  getVolunteerStats,
-  getAllDonationRequestsVolunteer,
-  updateDonationStatusVolunteer,
+  getAllDonationRequests,
+  updateDonationStatus,
+  getSingleDonationRequest
 } = require("../controllers/volunteer.controller");
 
-const verifyToken = require("../middlewares/verifyToken");
-const verifyRole = require("../middlewares/verifyRole");
+// GET all donation requests (for volunteer)
+router.get("/donations", protect, getAllDonationRequests);
 
-/* ===============================
-   Volunteer Dashboard Routes
-   =============================== */
+// PATCH donation status
+router.patch("/donations/:id/status", protect, updateDonationStatus);
 
-// Stats
-router.get(
-  "/stats",
-  verifyToken,
-  verifyRole("volunteer", "admin"),
-  getVolunteerStats
-);
+// Get single donation request
+router.get("/donations/:id", protect, getSingleDonationRequest);
 
-// All donation requests (view only)
-router.get(
-  "/donation-requests",
-  verifyToken,
-  verifyRole("volunteer", "admin"),
-  getAllDonationRequestsVolunteer
-);
-
-// Update donation status
-router.patch(
-  "/donation-requests/:id/status",
-  verifyToken,
-  verifyRole("volunteer", "admin"),
-  updateDonationStatusVolunteer
-);
 
 module.exports = router;

@@ -29,3 +29,12 @@ exports.adminOnly = (req, res, next) => {
   }
   next();
 };
+
+
+// 🔓 Volunteer OR Admin
+exports.volunteerOrAdmin = (req, res, next) => {
+  if (!["volunteer", "admin"].includes(req.user?.role)) {
+    return res.status(403).json({ message: "Forbidden: Volunteer/Admin only" });
+  }
+  next();
+};

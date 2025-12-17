@@ -7,6 +7,7 @@ const donationRoutes = require("./routes/donation.routes");
 const donorRoutes = require("./routes/donor.routes");
 const moneyDonationRoutes = require("./routes/moneyDonationRoutes");
 const adminRoutes = require("./routes/admin.routes");
+// const volunteerRoutes = require("./routes/volunteer.routes");
 
 const app = express();
 
@@ -19,6 +20,10 @@ app.use("/api/donations", donationRoutes);   // ✅ public + private donation re
 app.use("/api/donor", donorRoutes);           // ✅ donor dashboard actions
 app.use("/api/money-donations", moneyDonationRoutes);
 app.use("/api/admin", adminRoutes);
+// app.use("/volunteer", volunteerRoutes);
+
+
+
 
 app.get("/", (req, res) => {
   res.send("Blood Donation Server Running");

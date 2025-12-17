@@ -2,20 +2,21 @@
 const { connectDB } = require("../config/db");
 const { ObjectId } = require("mongodb");
 
-// 1️⃣ Get dashboard statistics
+/* ------------------- 1️⃣ Dashboard Statistics ------------------- */
 exports.getStats = async (req, res) => {
   try {
     const db = await connectDB();
     const users = db.collection("users");
-    const donations = db.collection("donations");
+    const donations = db.collection("donationRequests");
     const moneyDonations = db.collection("moneyDonations");
 
     const totalUsers = await users.countDocuments();
+    const totalBloodRequests = await donations.countDocuments();
+
     const totalFundsAgg = await moneyDonations.aggregate([
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ]).toArray();
     const totalFunds = totalFundsAgg[0]?.total || 0;
-    const totalBloodRequests = await donations.countDocuments();
 
     res.json({ totalUsers, totalFunds, totalBloodRequests });
   } catch (err) {
@@ -24,7 +25,7 @@ exports.getStats = async (req, res) => {
   }
 };
 
-// 2️⃣ Get all users with optional status filter
+/* ------------------- 2️⃣ Get All Users ------------------- */
 exports.getAllUsers = async (req, res) => {
   try {
     const db = await connectDB();
@@ -41,7 +42,7 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
-// 3️⃣ User actions: block, unblock, make-volunteer, make-admin
+/* ------------------- 3️⃣ User Actions ------------------- */
 exports.userActions = async (req, res) => {
   try {
     const { id, action } = req.params;
@@ -52,11 +53,22 @@ exports.userActions = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     let update = {};
-    if (action === "block") update.status = "blocked";
-    else if (action === "unblock") update.status = "active";
-    else if (action === "make-volunteer") update.role = "volunteer";
-    else if (action === "make-admin") update.role = "admin";
-    else return res.status(400).json({ message: "Invalid action" });
+    switch (action) {
+      case "block":
+        update.status = "blocked";
+        break;
+      case "unblock":
+        update.status = "active";
+        break;
+      case "make-volunteer":
+        update.role = "volunteer";
+        break;
+      case "make-admin":
+        update.role = "admin";
+        break;
+      default:
+        return res.status(400).json({ message: "Invalid action" });
+    }
 
     await users.updateOne({ _id: new ObjectId(id) }, { $set: update });
     res.json({ message: "Action performed successfully" });
@@ -66,13 +78,13 @@ exports.userActions = async (req, res) => {
   }
 };
 
+/* ------------------- 4️⃣ Donation Requests ------------------- */
 
-// 4️⃣ Get all blood donation requests (admin view)
-
+// List all donations with pagination and optional status filter
 exports.getAllDonationRequests = async (req, res) => {
   try {
     const db = await connectDB();
-    const donations = db.collection("donationRequests"); // ✅ use the same collection
+    const donations = db.collection("donationRequests");
 
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -95,13 +107,31 @@ exports.getAllDonationRequests = async (req, res) => {
   }
 };
 
-// 5️⃣ Update donation request status (Resolve/Reject)
+// Get a single donation request by ID
+exports.getDonationById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = await connectDB();
+    const donations = db.collection("donationRequests");
+
+    const donation = await donations.findOne({ _id: new ObjectId(id) });
+    if (!donation)
+      return res.status(404).json({ message: "Donation request not found" });
+
+    res.json(donation);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Update donation request status (Resolve / Reject / Done)
 exports.updateDonationStatus = async (req, res) => {
   try {
-    const { id } = req.params; // donation request ID
-    const { status } = req.body; // new status: "inprogress" or "canceled"
+    const { id } = req.params;
+    const { status } = req.body;
 
-    if (!["inprogress", "canceled", "done"].includes(status)) {
+    if (!["pending", "inprogress", "canceled", "done"].includes(status)) {
       return res.status(400).json({ message: "Invalid status" });
     }
 
@@ -112,11 +142,7 @@ exports.updateDonationStatus = async (req, res) => {
     if (!donation)
       return res.status(404).json({ message: "Donation request not found" });
 
-    await donations.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: { status } }
-    );
-
+    await donations.updateOne({ _id: new ObjectId(id) }, { $set: { status } });
     res.json({ message: "Status updated successfully", data: { _id: id, status } });
   } catch (err) {
     console.error(err);
@@ -124,3 +150,21 @@ exports.updateDonationStatus = async (req, res) => {
   }
 };
 
+// Delete donation request
+exports.deleteDonationRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = await connectDB();
+    const donations = db.collection("donationRequests");
+
+    const donation = await donations.findOne({ _id: new ObjectId(id) });
+    if (!donation)
+      return res.status(404).json({ message: "Donation request not found" });
+
+    await donations.deleteOne({ _id: new ObjectId(id) });
+    res.json({ message: "Donation request deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};

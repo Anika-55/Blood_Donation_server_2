@@ -86,3 +86,77 @@ exports.loginUser = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+// ------------------- GET CURRENT USER -------------------
+exports.getCurrentUser = async (req, res) => {
+  try {
+    const db = await connectDB();
+    const users = db.collection("users");
+
+    const user = await users.findOne({ _id: req.user._id });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar,
+      bloodGroup: user.bloodGroup,
+      district: user.district,
+      upazila: user.upazila,
+      role: user.role,
+      status: user.status,
+      createdAt: user.createdAt,
+    });
+  } catch (err) {
+    console.error("Error fetching profile:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ------------------- UPDATE CURRENT USER -------------------
+exports.updateCurrentUser = async (req, res) => {
+  try {
+    const db = await connectDB();
+    const users = db.collection("users");
+
+    const { name, avatar, bloodGroup, district, upazila, password } = req.body;
+
+    const updateData = {
+      ...(name && { name }),
+      ...(avatar && { avatar }),
+      ...(bloodGroup && { bloodGroup }),
+      ...(district && { district }),
+      ...(upazila && { upazila }),
+    };
+
+    // If user wants to change password
+    if (password) {
+      const hashed = await bcrypt.hash(password, 10);
+      updateData.password = hashed;
+    }
+
+    await users.updateOne(
+      { _id: req.user._id },
+      { $set: updateData }
+    );
+
+    const updatedUser = await users.findOne({ _id: req.user._id });
+
+    res.json({
+      name: updatedUser.name,
+      email: updatedUser.email,
+      avatar: updatedUser.avatar,
+      bloodGroup: updatedUser.bloodGroup,
+      district: updatedUser.district,
+      upazila: updatedUser.upazila,
+      role: updatedUser.role,
+      status: updatedUser.status,
+      createdAt: updatedUser.createdAt,
+    });
+  } catch (err) {
+    console.error("Error updating profile:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};

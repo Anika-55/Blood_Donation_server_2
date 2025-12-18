@@ -10,7 +10,15 @@ const {
   updateDonationRequest,
   getSingleDonationRequest,
   deleteDonation,
+  searchDonors,
 } = require("../controllers/donor.controller");
+
+
+
+// search donors
+router.get("/search", searchDonors);
+
+
 
 // last 3 requests (dashboard)
 router.get("/dashboard", protect, dashboardHome);
@@ -31,5 +39,7 @@ router.patch("/:id/status", protect, updateDonationStatus);
 
 // delete
 router.delete("/:id", protect, deleteDonation);
+
+
 
 module.exports = router;

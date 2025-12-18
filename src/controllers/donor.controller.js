@@ -288,3 +288,52 @@ exports.deleteDonation = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+// **************++++++
+
+
+exports.searchDonors = async (req, res) => {
+  try {
+    const db = await connectDB();
+    const users = db.collection("users");
+
+    const { bloodGroup, district, upazila } = req.query;
+
+    // Required filters (extra safety)
+    if (!bloodGroup || !district || !upazila) {
+      return res.status(400).json({ message: "Missing search parameters" });
+    }
+
+    const query = {
+      role: "donor",
+      status: "active",
+      bloodGroup,
+      district,
+      upazila,
+    };
+
+    const donors = await users
+      .find(query)
+      .project({
+        name: 1,
+        bloodGroup: 1,
+        district: 1,
+        upazila: 1,
+            email: 1, 
+        lastDonationDate: 1, // optional
+        _id: 1,
+      })
+      .limit(20)
+      .toArray();
+
+    res.json(donors);
+  } catch (err) {
+    console.error("Search donors error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+
+

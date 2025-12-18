@@ -22,6 +22,7 @@ app.use("/api/money-donations", moneyDonationRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/volunteer", volunteerRoutes);
 // app.use("/api/donor", donorRoutes);
+app.use("/api/contact", require("./routes/contact.routes"));
 
 
 app.get("/", (req, res) => {

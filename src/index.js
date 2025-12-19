@@ -5,7 +5,6 @@ const cors = require("cors");
 const authRoutes = require("./routes/auth.routes");
 const donationRoutes = require("./routes/donation.routes");
 const donorRoutes = require("./routes/donor.routes");
-const moneyDonationRoutes = require("./routes/moneyDonationRoutes");
 const adminRoutes = require("./routes/admin.routes");
 const volunteerRoutes = require("./routes/volunteer.routes");
 
@@ -18,7 +17,6 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/donations", donationRoutes);   // ✅ public + private donation requests
 app.use("/api/donor", donorRoutes);           // ✅ donor dashboard actions
-app.use("/api/money-donations", moneyDonationRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/volunteer", volunteerRoutes);
 // app.use("/api/donor", donorRoutes);
